@@ -8,18 +8,18 @@
 		<Platforms>x64</Platforms>
 		<RuntimeIdentifier>win-x64</RuntimeIdentifier>
 		<UseWinUI>true</UseWinUI>
-		<!-- 非打包(UWP/MSIX)方式运行：生成可直接启动的 exe -->
+		<!-- 非打包 (UWP/MSIX) 方式运行: 生成可直接启动的 exe -->
 		<WindowsPackageType>None</WindowsPackageType>
-		<!-- 当前只有中文资源；PRI 工具需要知道默认语言，避免 PRI257/PRI263 警告 -->
+		<!-- 当前只有中文资源: PRI 工具需要知道默认语言, 避免 PRI257/PRI263 警告 -->
 		<DefaultLanguage>zh-CN</DefaultLanguage>
-		<!-- 本次发版的版本号；CI 会用 /p:Version 覆盖成 tag 上的版本 -->
-		<Version>0.0.0</Version>
+		<!-- 本次发版的版本号; CI 会用 /p:Version 覆盖成 tag 上的版本 -->
+		<Version>0.0.1</Version>
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Nullable>enable</Nullable>
 	</PropertyGroup>
 
 	<ItemGroup>
-		<!-- 这些 resw 是运行时给 WinUI3Localizer 读取的文件，不参与 PRI 资源编译 -->
+		<!-- 这些 resw 是运行时给 WinUI3Localizer 读取的文件, 不参与 PRI 资源编译 -->
 		<PRIResource Remove="Strings\**\*.resw" />
 	</ItemGroup>
 
@@ -31,4 +31,23 @@
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 		</Content>
 	</ItemGroup>
+
+	<ItemGroup>
+	  <Folder Include="Controls\" />
+	  <Folder Include="Helpers\" />
+	</ItemGroup>
+    <!--
+        WinUI 3 非打包发布缺陷:
+        `dotnet publish` 不会把 App.xbf / MainWindow.xbf 和 <程序集名>.pri 复制到发布目录,
+        导致发布版启动时 XAML 资源解析失败, 进程以 0xc000027b 崩溃 (microsoft/WindowsAppSDK#6720, #6394).
+        在此现实把他们加入发布清单, 保留子目录结构.
+    -->
+	<Target Name="IncludeXamlResourcesInPublish" AfterTargets="ComputeFilesToPublish">
+		<ItemGroup>
+			<ResolvedFileToPublish Include="$(OutDir)**\*.xbf;$(OutDir)$(AssemblyName).pri">
+				<RelativePath>%(RecursiveDir)%(Filename)%(Extension)</RelativePath>
+				<CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+			</ResolvedFileToPublish>
+		</ItemGroup>
+	</Target>
 </Project>
