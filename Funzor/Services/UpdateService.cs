@@ -1,13 +1,13 @@
 using System.Diagnostics;
-using System.Net.Http;
 using System.Reflection;
 using System.Security.Cryptography;
 using System.Text.Json;
+using Funzor.Models;
 
-namespace Funzor;
+namespace Funzor.Services;
 
 /// <summary>
-/// 通过 GitHub Release 上的分发清单检查更新、下载安装包并启动安装程序。
+/// 通过 GitHub Release 上的分发清单检查更新, 下载安装包并启动安装程序.
 /// </summary>
 internal sealed class UpdateService
 {
@@ -16,7 +16,7 @@ internal sealed class UpdateService
     private static readonly HttpClient Http = new();
     private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
 
-    /// <summary>当前程序版本，来自程序集版本（发版时由 CI 的 /p:Version 注入）。</summary>
+    /// <summary>当前程序版本, 来自程序集版本 (发版时由 CI 的 /p:Version 注入).</summary>
     public Version CurrentVersion { get; } = ReadCurrentVersion();
 
     public async Task<UpdateInfo?> GetLatestAsync()
@@ -25,7 +25,7 @@ internal sealed class UpdateService
         return JsonSerializer.Deserialize<UpdateInfo>(json, JsonOptions);
     }
 
-    /// <summary>下载安装包、校验 SHA256，然后静默启动安装程序。</summary>
+    /// <summary>下载安装包, 校验 SHA256, 然后静默启动安装程序.</summary>
     public async Task DownloadAndRunInstallerAsync(UpdateInfo info, IProgress<double> progress)
     {
         string directory = Path.Combine(Path.GetTempPath(), "FunzorUpdate");
@@ -60,7 +60,7 @@ internal sealed class UpdateService
             throw new InvalidOperationException("更新包校验失败，已取消安装。");
         }
 
-        // 主程序以管理员身份运行，安装程序继承已提权令牌，不会再弹 UAC
+        // 主程序以管理员身份运行, 安装程序继承已提权令牌, 不会再弹 UAC
         Process.Start(new ProcessStartInfo(
             installerPath,
             "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /CLOSEAPPLICATIONS")
@@ -82,15 +82,4 @@ internal sealed class UpdateService
             ? new Version(0, 0, 0)
             : new Version(version.Major, version.Minor, Math.Max(version.Build, 0));
     }
-}
-
-internal sealed class UpdateInfo
-{
-    public string Version { get; set; } = string.Empty;
-
-    public string Url { get; set; } = string.Empty;
-
-    public string Sha256 { get; set; } = string.Empty;
-
-    public string Notes { get; set; } = string.Empty;
 }

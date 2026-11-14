@@ -1,3 +1,4 @@
+using Funzor.Views;
 using Microsoft.UI.Xaml;
 using WinUI3Localizer;
 
@@ -21,7 +22,7 @@ namespace Funzor
 
         private static async Task InitializeLocalizer()
         {
-            // 非打包应用：Strings 文件夹由 csproj 复制到 exe 所在目录
+            // 非打包应用: Strings 文件夹由 csproj 复制到 exe 所在目录
             string stringsFolderPath = Path.Combine(AppContext.BaseDirectory, "Strings");
 
             await new LocalizerBuilder()

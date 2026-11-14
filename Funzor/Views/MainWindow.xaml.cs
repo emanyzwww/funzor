@@ -1,8 +1,10 @@
+using Funzor.Models;
+using Funzor.Services;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using WinUI3Localizer;
 
-namespace Funzor
+namespace Funzor.Views
 {
     public sealed partial class MainWindow : Window
     {
@@ -49,7 +51,7 @@ namespace Funzor
                     await showOperation;
                 }
 
-                // 安装程序已在运行，退出以释放文件占用
+                // 安装程序已在运行, 退出以释放文件占用
                 Application.Current.Exit();
             }
             catch (Exception exception)
