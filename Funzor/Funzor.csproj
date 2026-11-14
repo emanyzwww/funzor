@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<OutputType>WinExe</OutputType>
+		<TargetFramework>net10.0-windows10.0.26100.0</TargetFramework>
+		<TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
+		<RootNamespace>Funzor</RootNamespace>
+		<ApplicationManifest>app.manifest</ApplicationManifest>
+		<Platforms>x64</Platforms>
+		<RuntimeIdentifier>win-x64</RuntimeIdentifier>
+		<UseWinUI>true</UseWinUI>
+		<!-- 非打包(UWP/MSIX)方式运行：生成可直接启动的 exe -->
+		<WindowsPackageType>None</WindowsPackageType>
+		<!-- 当前只有中文资源；PRI 工具需要知道默认语言，避免 PRI257/PRI263 警告 -->
+		<DefaultLanguage>zh-CN</DefaultLanguage>
+		<!-- 本次发版的版本号；CI 会用 /p:Version 覆盖成 tag 上的版本 -->
+		<Version>0.0.0</Version>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<!-- 这些 resw 是运行时给 WinUI3Localizer 读取的文件，不参与 PRI 资源编译 -->
+		<PRIResource Remove="Strings\**\*.resw" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Microsoft.WindowsAppSDK" Version="2.6.5" />
+		<PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.28000.2957" />
+		<PackageReference Include="WinUI3Localizer" Version="2.3.0" />
+		<Content Include="Strings\**\*.resw">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</Content>
+	</ItemGroup>
+</Project>

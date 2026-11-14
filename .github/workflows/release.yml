@@ -1,0 +1,142 @@
+name: release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '11.0.x'
+
+      # 解析 Git Tag 版本号
+      - name: 解析版本号
+        shell: pwsh
+        run: |
+          $version = "${{ github.ref_name }}".TrimStart('v')
+
+          if ($version -notmatch '^\d+\.\d+\.\d+$') {
+            throw "tag 需要形如 v1.2.3，实际为 ${{ github.ref_name }}"
+          }
+
+          "VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+          Write-Host "版本号: $version"
+
+      # 发布 .NET 应用
+      - name: 发布
+        shell: pwsh
+        run: |
+          dotnet publish Funzor/Funzor.csproj `
+            -c Release `
+            -p:Platform=x64 `
+            -p:Version=$env:VERSION `
+            -o artifacts/publish `
+            -nologo
+
+          if ($LASTEXITCODE -ne 0) {
+            throw "dotnet publish 失败"
+          }
+
+          New-Item -ItemType Directory -Force -Path artifacts | Out-Null
+
+      # 安装 Inno Setup 7.1.1
+      - name: 安装 Inno Setup 7.1.1
+        shell: pwsh
+        run: |
+          $setup  = Join-Path $env:RUNNER_TEMP "innosetup-7.1.1-x64.exe"
+          $url    = "https://github.com/jrsoftware/issrc/releases/download/is-7_1_1/innosetup-7.1.1-x64.exe"
+
+          Invoke-WebRequest -Uri $url -OutFile $setup
+
+          $expected = "8a5a6711c3766a6e5fb74f280ba0e3551e719ce94538d901fdbd1f8f9920b3f0"
+          $actual   = (Get-FileHash $setup -Algorithm SHA256).Hash.ToLower()
+          if ($actual -ne $expected) { throw "Inno Setup 安装包校验失败: $actual" }
+
+          Start-Process $setup -ArgumentList "/VERYSILENT","/SUPPRESSMSGBOXES","/NORESTART","/SP-" -Wait
+
+          if (-not (Test-Path "C:\Program Files\Inno Setup 7\ISCC.exe")) {
+            throw "Inno Setup 7 安装后找不到 ISCC.exe"
+          }
+
+      # 编译安装包
+      - name: 编译安装包
+        shell: pwsh
+        run: |
+          $iscc = @(
+            (Join-Path ([Environment]::GetFolderPath('ProgramFilesX86')) 'Inno Setup 7\ISCC.exe')
+            (Join-Path ([Environment]::GetFolderPath('ProgramFiles')) 'Inno Setup 7\ISCC.exe')
+          ) | Where-Object { Test-Path $_ } | Select-Object -First 1
+
+          if (-not $iscc) {
+            throw "找不到 Inno Setup 7 的 ISCC.exe"
+          }
+
+          $installerName = "FunzorSetup-v$env:VERSION-x64"
+
+          & $iscc installer/Funzor.iss `
+            "/DAppVersion=$env:VERSION" `
+            "/DPublishDir=${env:GITHUB_WORKSPACE}\artifacts\publish" `
+            "/DOutputBaseFilename=$installerName"
+
+          if ($LASTEXITCODE -ne 0) {
+            throw "安装包编译失败"
+          }
+
+          $installerPath = "installer/Output/$installerName.exe"
+
+          if (-not (Test-Path $installerPath)) {
+            throw "安装包不存在: $installerPath"
+          }
+
+          Copy-Item $installerPath "artifacts/$installerName.exe"
+
+          Write-Host "安装包生成成功: $installerName.exe"
+
+      # 生成更新清单
+      - name: 生成更新清单
+        shell: pwsh
+        run: |
+          $installerName = "FunzorSetup-v$env:VERSION-x64.exe"
+          $installerPath = "artifacts/$installerName"
+
+          $hash = (Get-FileHash $installerPath -Algorithm SHA256).Hash.ToLower()
+
+          $manifest = [ordered]@{
+            version = $env:VERSION
+            url     = "https://github.com/${{ github.repository }}/releases/latest/download/$installerName"
+            sha256  = $hash
+            notes   = ""
+          }
+
+          $manifest | ConvertTo-Json | Out-File -FilePath artifacts/latest.json -Encoding utf8
+
+          Write-Host (Get-Content artifacts/latest.json -Raw)
+
+      # 创建 GitHub Release
+      - name: 创建 Release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $installerName = "FunzorSetup-v$env:VERSION-x64.exe"
+
+          gh release create "${{ github.ref_name }}" `
+            "artifacts/$installerName" `
+            artifacts/latest.json `
+            --title "Funzor $env:VERSION" `
+            --notes "Funzor $env:VERSION"
+
+          if ($LASTEXITCODE -ne 0) {
+            throw "GitHub Release 创建失败"
+          }

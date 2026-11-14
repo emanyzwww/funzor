@@ -1,0 +1,15 @@
+# AI
+**/.agents/*
+!**/.agents/skills/
+!**/.agents/skills/*
+
+# IDEs
+**/.vs/
+*.user
+**/.idea/
+
+# Build artifacts
+**/bin/*
+**/obj/*
+/artifacts/
+/installer/Output/
