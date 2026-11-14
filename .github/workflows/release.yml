@@ -13,7 +13,10 @@ jobs:
     runs-on: windows-latest
 
     steps:
+      # 拉取完整历史与 tag: git-cliff 要按 tag 区间生成发布说明
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-dotnet@v4
         with:
@@ -26,7 +29,7 @@ jobs:
           $version = "${{ github.ref_name }}".TrimStart('v')
 
           if ($version -notmatch '^\d+\.\d+\.\d+$') {
-            throw "tag 需要形如 v1.2.3，实际为 ${{ github.ref_name }}"
+            throw "tag 需要形如 v1.2.3, 实际为 ${{ github.ref_name }}"
           }
 
           "VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
@@ -123,6 +126,32 @@ jobs:
 
           Write-Host (Get-Content artifacts/latest.json -Raw)
 
+      # 生成发行说明: 按 Conventional Commits 分组, 输出到 RELEASE_NOTES.md
+      # 说明生成失败不阻塞发版, 创建 Release 时会退回默认说明
+      - name: 生成发行说明
+        id: cliff
+        continue-on-error: true
+        uses: orhun/git-cliff-action@v4
+        env:
+          OUTPUT: RELEASE_NOTES.md
+          GITHUB_REPO: ${{ github.repository }}
+        with:
+          config: cliff.toml
+          args: --latest --strip header
+
+      # 合成发行说明: 版本标题 + 手写摘要 + 分组 + 贡献者
+      - name: 合成发行说明
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPO: ${{ github.repository }}
+        run: |
+          pwsh scripts/build-release-notes.ps1 `
+            -Version $env:VERSION `
+            -TagName "${{ github.ref_name }}" `
+            -Repository $env:GITHUB_REPO `
+            -NotesPath RELEASE_NOTES.md
+
       # 创建 GitHub Release
       - name: 创建 Release
         shell: pwsh
@@ -131,11 +160,16 @@ jobs:
         run: |
           $installerName = "FunzorSetup-v$env:VERSION-x64.exe"
 
+          if (-not (Test-Path RELEASE_NOTES.md) -or (Get-Item RELEASE_NOTES.md).Length -eq 0) {
+            Write-Host "未生成发行说明, 使用默认说明"
+            "Funzor $env:VERSION" | Out-File RELEASE_NOTES.md -Encoding utf8
+          }
+
           gh release create "${{ github.ref_name }}" `
             "artifacts/$installerName" `
             artifacts/latest.json `
             --title "Funzor $env:VERSION" `
-            --notes "Funzor $env:VERSION"
+            --notes-file RELEASE_NOTES.md
 
           if ($LASTEXITCODE -ne 0) {
             throw "GitHub Release 创建失败"

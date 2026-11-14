@@ -29,7 +29,7 @@ $iscc = @(
 ) | Where-Object { Test-Path $_ } | Select-Object -First 1
 
 if (-not $iscc) {
-    throw "找不到 ISCC.exe，请先安装 Inno Setup 7"
+    throw "找不到 ISCC.exe, 请先安装 Inno Setup 7"
 }
 
 # 编译安装程序
