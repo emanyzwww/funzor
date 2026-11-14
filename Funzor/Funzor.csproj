@@ -36,18 +36,19 @@
 	  <Folder Include="Controls\" />
 	  <Folder Include="Helpers\" />
 	</ItemGroup>
-    <!--
-        WinUI 3 非打包发布缺陷:
-        `dotnet publish` 不会把 App.xbf / MainWindow.xbf 和 <程序集名>.pri 复制到发布目录,
-        导致发布版启动时 XAML 资源解析失败, 进程以 0xc000027b 崩溃 (microsoft/WindowsAppSDK#6720, #6394).
-        在此现实把他们加入发布清单, 保留子目录结构.
-    -->
-	<Target Name="IncludeXamlResourcesInPublish" AfterTargets="ComputeFilesToPublish">
+	<!--
+		WinUI 3 非打包发布缺陷:
+		dotnet publish 不会把 App.xbf / MainWindow.xbf 和 <程序集名>.pri 复制到发布目录,
+		导致发布版启动时 XAML 资源解析失败, 进程以 0xc000027b 崩溃 (microsoft/WindowsAppSDK#6720, #6394).
+		在 Publish 之后直接复制, 不动 ResolvedFileToPublish, 避免 NETSDK1152 重复项冲突.
+	-->
+	<Target Name="CopyXamlArtifactsToPublish" AfterTargets="Publish">
 		<ItemGroup>
-			<ResolvedFileToPublish Include="$(OutDir)**\*.xbf;$(OutDir)$(AssemblyName).pri">
-				<RelativePath>%(RecursiveDir)%(Filename)%(Extension)</RelativePath>
-				<CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
-			</ResolvedFileToPublish>
+			<_XamlArtifact Include="$(OutDir)**\*.xbf" />
+			<_XamlArtifact Include="$(OutDir)$(AssemblyName).pri" />
 		</ItemGroup>
+		<Copy SourceFiles="@(_XamlArtifact)"
+			  DestinationFiles="@(_XamlArtifact->'$(PublishDir)%(RecursiveDir)%(Filename)%(Extension)')"
+			  SkipUnchangedFiles="true" />
 	</Target>
 </Project>
